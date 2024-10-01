@@ -26,6 +26,7 @@ public class CustomContainer extends AbstractContainerMenu {
     public CustomContainer(int windowId, Inventory playerInventory) {
         super(ExampleMod.CUSTOM_CONTAINER.get(), windowId);
         this.playerInventory = playerInventory;
+
         List<Integer> filledSlots = new ArrayList<>();
         int mode = FilterManager.getFilterMode();
         switch (mode) {
@@ -33,7 +34,7 @@ public class CustomContainer extends AbstractContainerMenu {
                 for (int i = 9; i < 29; i++) {
                     if (!playerInventory.getItem(i).isEmpty() && playerInventory.getItem(i).isEdible()) {
                         filledSlots.add(i);
-                        System.out.println(i);
+                        System.out.println("Filled slot : " + i + "Content" + playerInventory.getItem(i).getItem());
                     }
                 }
                 break;
@@ -41,7 +42,7 @@ public class CustomContainer extends AbstractContainerMenu {
                 for (int i = 9; i < 29; i++) {
                     if (!playerInventory.getItem(i).isEmpty() && playerInventory.getItem(i).getItem() instanceof ArmorItem) {
                         filledSlots.add(i);
-                        System.out.println(i);
+                        System.out.println("Filled slot : " + i + "Content" + playerInventory.getItem(i).getItem());
                     }
                 }
                 break;
@@ -49,39 +50,62 @@ public class CustomContainer extends AbstractContainerMenu {
                 for (int i = 9; i < 29; i++) {
                     if (!playerInventory.getItem(i).isEmpty()) {
                         filledSlots.add(i);
+                        System.out.println("Filled slot : " + i + "Content" + playerInventory.getItem(i).getItem());
                     }
                 }
                 break;
         }
 
-        filledSlots.add(getNextEmptySlotIndex(playerInventory));
-        System.out.println(getNextEmptySlotIndex(playerInventory));
-        System.out.println("INV ITEM SELECTED");
+        int nextEmptySlot = getNextEmptySlotIndex(playerInventory);
+        if (nextEmptySlot >= 0 && nextEmptySlot < 29 && !filledSlots.contains(nextEmptySlot)) {
+            filledSlots.add(nextEmptySlot);
+        }
         this.addSlot(new ArmorSlot(playerInventory, 39, 270, 96, EquipmentSlot.HEAD));
         this.addSlot(new ArmorSlot(playerInventory, 38, 270, 132, EquipmentSlot.CHEST));
         this.addSlot(new ArmorSlot(playerInventory, 37, 270, 168, EquipmentSlot.LEGS));
         this.addSlot(new ArmorSlot(playerInventory, 36, 270, 204, EquipmentSlot.FEET));
 
-        int slot = 0;
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 5; ++j) {
-                if (slot < filledSlots.size()){
-                    int x = 20 + j * 36;
-                    int y = 96 +  i * 36;
-                    this.addSlot(new Slot(playerInventory, filledSlots.get(slot), x, y));
-                    System.out.println(filledSlots.get(slot));
-                    slot++;
-                    }
+        int totalSlots = 20; // Total number of slots you want to handle
+        int filledSlotCount = filledSlots.size(); // Number of filled slots
+        int filledSlotIndex = 0; // Index to track the current filled slot
+
+        for (int slotId = 0; slotId < totalSlots; ++slotId) {
+            int x, y;
+
+            // Check if the current slot ID is in filled slots
+            if (filledSlotIndex < filledSlotCount && filledSlots.contains(slotId)) {
+                // If it's a filled slot, calculate its position
+                int i = filledSlotIndex / 5; // Calculate row index (0 to 3 for 20 slots)
+                int j = filledSlotIndex % 5; // Calculate column index (0 to 4 for 5 columns)
+
+                x = 20 + j * 36; // Calculate x position
+                y = 96 + i * 36; // Calculate y position
+
+                this.addSlot(new Slot(playerInventory, slotId, x, y)); // Add filled slot
+                System.out.println("Slot shown : " + slotId + " Content : " + playerInventory.getItem(slotId));
+
+                filledSlotIndex++; // Move to the next filled slot index
+            } else {
+                // For empty slots, place them at (0, 0)
+                x = -1000;
+                y = -1000;
+                // Here, you can decide whether to add an empty slot visually or just skip it.
+                // If you want to add a visual representation of an empty slot:
+                this.addSlot(new Slot(playerInventory, slotId, x, y)); // -1 or another value to indicate an empty slot
+                System.out.println("Empty Slot at position (0,0) for slot ID: " + slotId);
             }
         }
 
+        /*
         for (int i = 9; i < 29; i++) {
-            if (!filledSlots.contains(i)) {
-                this.addSlot(new Slot(playerInventory, i, -1000, -1000));
+            if (disableSlots.contains(i)) {
+                this.addSlot(new Slot(playerInventory, i, i * 40, 0));
             }
         }
+        */
 
         // Add hotbar slots (0-8)
+
         for (int k = 0; k < 5; ++k) {
             int x = 20 + k * 36;
             int y = 260;
@@ -92,10 +116,12 @@ public class CustomContainer extends AbstractContainerMenu {
     private int getNextEmptySlotIndex(Inventory playerInventory) {
         for (int i = 9; i < 29; i++) {
             if (playerInventory.getItem(i).isEmpty()) {
+                System.out.println("Empty slot : " + i);
+                System.out.println("Item : " + playerInventory.getItem(i).getItem());
                 return i;
             }
         }
-        return 36;
+        return 100;
     }
 
     @Override
