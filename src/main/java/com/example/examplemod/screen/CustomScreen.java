@@ -4,6 +4,8 @@ import com.example.examplemod.container.CustomContainer;
 import com.example.examplemod.filter.FilterManager;
 import com.example.examplemod.network.NetworkHandler;
 import com.example.examplemod.network.OpenCustomContainerPacket;
+import com.example.examplemod.network.ServerboundSelectTradePacket;
+import com.example.examplemod.network.ServerboundTradePacket;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,14 +15,19 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 
 public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
     private static final ResourceLocation TEXTURE = new ResourceLocation("examplemod", "textures/gui/custom_inventory.png");
     private EditBox amountField;
+    private EditBox recipientField;
+    private Button tradeButton;
 
     public CustomScreen(CustomContainer screenContainer, Inventory inv, Component title) {
         super(screenContainer, inv, title);
@@ -40,8 +47,6 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
             drawRoundedRect(guiGraphics, this.leftPos + slot.x - 8, this.topPos + slot.y - 8, 32, 32, backgroundColor, isSelected);
         }
     }
-
-
 
     private void drawRoundedRect(GuiGraphics guiGraphics, int x, int y, int width, int height, int color, boolean isSelected) {
         RenderSystem.enableBlend(); // Enable blending
@@ -92,6 +97,17 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         this.amountField.setValue("0");
         this.addRenderableWidget(this.amountField);
 
+        this.addRenderableWidget(Button.builder(
+                        Component.literal("Trade"),
+                        button -> {
+                            NetworkHandler.INSTANCE.sendToServer(new ServerboundSelectTradePacket());
+                            initiateTrade();
+                        })
+                .pos(this.leftPos + 335, this.topPos + 370)
+                .size(50, 20)
+                .build()
+        );
+
         // Adding custom buttons for filters
         this.addRenderableWidget(new CustomButton(this.leftPos + 129, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/all.png"), button -> {
             FilterManager.setFilterMode(0);
@@ -108,6 +124,69 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
             refreshContainer();
         }));
     }
+
+    private void initiateTrade() {
+        ItemStack tradeItem = this.menu.getSlot(0).getItem();
+        if (tradeItem.isEmpty()) {
+            return;
+        }
+
+        String amountStr = amountField.getValue();
+        int tradeAmount;
+        try {
+            tradeAmount = Integer.parseInt(amountStr);
+        } catch (NumberFormatException e) {
+            // Handle invalid number format
+            return;
+        }
+
+        // Check if the player has enough items in slot 40
+        if (tradeItem.getCount() < tradeAmount) {
+            // Show an error message if the player doesn't have enough items
+            return;
+        }
+
+        // Proceed to the next step to select a nearby player for trade
+        openPlayerSelectionScreen();
+    }
+
+    private void openPlayerSelectionScreen() {
+        // Get nearby players within a 5-block radius
+        List<Player> nearbyPlayers = getNearbyPlayers(5); // This should be a method that checks the server for nearby players
+
+        if (nearbyPlayers.isEmpty()) {
+            System.out.println("There is no players nearby");
+            return;
+        }
+
+        for (Player player : nearbyPlayers) {
+            this.addRenderableWidget(Button.builder(
+                            Component.literal(player.getName().getString()),
+                            button -> initiatePlayerTrade(player)
+                    ).pos(this.leftPos + 350, this.topPos + 30 + nearbyPlayers.indexOf(player) * 20) // Adjust position based on index
+                    .size(80, 20)
+                    .build());
+        }
+    }
+
+    private List<Player> getNearbyPlayers(int radius) {
+        Player player = Minecraft.getInstance().player;
+        List<Player> nearbyPlayers = player.level().getEntitiesOfClass(Player.class, player.getBoundingBox().inflate(radius));
+        nearbyPlayers.remove(player);
+        return nearbyPlayers;
+    }
+
+
+    private void initiatePlayerTrade(Player recipient) {
+        ItemStack tradeItem = this.menu.getSlot(0).getItem();
+        String amountStr = amountField.getValue();
+        int tradeAmount = Integer.parseInt(amountStr);
+
+        // Send trade packet to server
+        NetworkHandler.INSTANCE.sendToServer(new ServerboundTradePacket(recipient.getUUID(), tradeItem, tradeAmount));
+    }
+
+
 
     private void refreshContainer() {
         Minecraft mc = Minecraft.getInstance();
@@ -149,25 +228,5 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
     @Override
     protected void slotClicked(Slot slot, int slotId, int mouseButton, ClickType type) {
         super.slotClicked(slot, slotId, mouseButton, type);
-        // Handle client-side visuals if needed
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Disable drop key (Q key by default)
-        if (this.minecraft.options.keyDrop.matches(keyCode, scanCode)) {
-            return false; // Do nothing when drop key is pressed
-        }
-
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        Slot slot = getSlotUnderMouse();
-        if (slot == null && !this.menu.getCarried().isEmpty()) {
-            return false; // Prevent dropping the item
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
     }
 }

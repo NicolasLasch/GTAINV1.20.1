@@ -19,5 +19,9 @@ public class NetworkHandler {
     public static void registerMessages() {
         int id = 0;
         INSTANCE.registerMessage(id++, OpenCustomContainerPacket.class, OpenCustomContainerPacket::toBytes, OpenCustomContainerPacket::new, OpenCustomContainerPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        INSTANCE.registerMessage(id++, ServerboundSelectTradePacket.class, ServerboundSelectTradePacket::toBytes, ServerboundSelectTradePacket::new, ServerboundSelectTradePacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        INSTANCE.registerMessage(id++, ServerboundTradePacket.class, ServerboundTradePacket::toBytes, ServerboundTradePacket::new, ServerboundTradePacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }

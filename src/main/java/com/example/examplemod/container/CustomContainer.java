@@ -1,5 +1,6 @@
 package com.example.examplemod.container;
 
+import com.example.examplemod.container.slot.TradeSlot;
 import com.example.examplemod.custom.ArmorSlot;
 import com.example.examplemod.filter.FilterManager;
 import net.minecraft.network.FriendlyByteBuf;
@@ -27,6 +28,8 @@ public class CustomContainer extends AbstractContainerMenu {
         super(ExampleMod.CUSTOM_CONTAINER.get(), windowId);
         this.playerInventory = playerInventory;
 
+        this.addSlot(new TradeSlot(playerInventory, 27, 335, 340));
+
         List<Integer> filledSlots = new ArrayList<>();
         int mode = FilterManager.getFilterMode();
         switch (mode) {
@@ -34,7 +37,6 @@ public class CustomContainer extends AbstractContainerMenu {
                 for (int i = 9; i < 29; i++) {
                     if (!playerInventory.getItem(i).isEmpty() && playerInventory.getItem(i).isEdible()) {
                         filledSlots.add(i);
-                        System.out.println("Filled slot : " + i + "Content" + playerInventory.getItem(i).getItem());
                     }
                 }
                 break;
@@ -42,16 +44,13 @@ public class CustomContainer extends AbstractContainerMenu {
                 for (int i = 9; i < 29; i++) {
                     if (!playerInventory.getItem(i).isEmpty() && playerInventory.getItem(i).getItem() instanceof ArmorItem) {
                         filledSlots.add(i);
-                        System.out.println("Filled slot : " + i + "Content" + playerInventory.getItem(i).getItem());
                     }
                 }
                 break;
             default:
                 for (int i = 9; i < 29; i++) {
                     if (!playerInventory.getItem(i).isEmpty()) {
-                        filledSlots.add(i);
-                        System.out.println("Filled slot : " + i + "Content" + playerInventory.getItem(i).getItem());
-                    }
+                        filledSlots.add(i);}
                 }
                 break;
         }
@@ -82,7 +81,6 @@ public class CustomContainer extends AbstractContainerMenu {
                 y = 96 + i * 36; // Calculate y position
 
                 this.addSlot(new Slot(playerInventory, slotId, x, y)); // Add filled slot
-                System.out.println("Slot shown : " + slotId + " Content : " + playerInventory.getItem(slotId));
 
                 filledSlotIndex++; // Move to the next filled slot index
             } else {
@@ -92,7 +90,6 @@ public class CustomContainer extends AbstractContainerMenu {
                 // Here, you can decide whether to add an empty slot visually or just skip it.
                 // If you want to add a visual representation of an empty slot:
                 this.addSlot(new Slot(playerInventory, slotId, x, y)); // -1 or another value to indicate an empty slot
-                System.out.println("Empty Slot at position (0,0) for slot ID: " + slotId);
             }
         }
 
@@ -116,8 +113,6 @@ public class CustomContainer extends AbstractContainerMenu {
     private int getNextEmptySlotIndex(Inventory playerInventory) {
         for (int i = 9; i < 29; i++) {
             if (playerInventory.getItem(i).isEmpty()) {
-                System.out.println("Empty slot : " + i);
-                System.out.println("Item : " + playerInventory.getItem(i).getItem());
                 return i;
             }
         }
