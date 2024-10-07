@@ -49,10 +49,8 @@ public class ServerboundTradePacket {
                         break;
                     }
                 }
-
                 if (hasSpace) {
-                    // Now remove the item from the sender's inventory
-                    ItemStack senderItem = player.getInventory().getItem(30);
+                    ItemStack senderItem = player.getInventory().getItem(27);
                     System.out.println("Test item : " + tradeItem.getItem());
                     System.out.println(tradeItem.getItem());
                     System.out.println(senderItem.getItem());
