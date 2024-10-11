@@ -8,6 +8,7 @@ import com.example.examplemod.network.ServerboundSelectTradePacket;
 import com.example.examplemod.network.ServerboundTradePacket;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -20,14 +21,18 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
+    private boolean isPopupOpen = false;
     private static final ResourceLocation TEXTURE = new ResourceLocation("examplemod", "textures/gui/custom_inventory.png");
     private EditBox amountField;
     private EditBox recipientField;
     private Button tradeButton;
+    private List<Button> popupButtons = new ArrayList<>();
+    private double previousMouseX, previousMouseY;
 
     public CustomScreen(CustomContainer screenContainer, Inventory inv, Component title) {
         super(screenContainer, inv, title);
@@ -75,6 +80,10 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
         this.renderDraggedItemWithBackground(guiGraphics, mouseX, mouseY);
+
+        if (isPopupOpen) {
+            renderTradePopup(guiGraphics, mouseX, mouseY);
+        }
     }
 
     private void renderDraggedItemWithBackground(GuiGraphics guiGraphics, int mouseX, int mouseY) {
@@ -89,6 +98,7 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
     @Override
     protected void init() {
         super.init();
+
         this.leftPos = 0;
         this.topPos = 0;
 
@@ -147,26 +157,60 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         }
 
         // Proceed to the next step to select a nearby player for trade
-        openPlayerSelectionScreen();
+        isPopupOpen = true;
     }
 
+    // Modify the openPlayerSelectionScreen method to store references to the buttons in the popup
     private void openPlayerSelectionScreen() {
         // Get nearby players within a 5-block radius
-        List<Player> nearbyPlayers = getNearbyPlayers(5); // This should be a method that checks the server for nearby players
+        List<Player> nearbyPlayers = getNearbyPlayers(5);
 
-        if (nearbyPlayers.isEmpty()) {
-            System.out.println("There is no players nearby");
+        // Remove any existing buttons when reopening the popup
+        if (!isPopupOpen) {
+            clearPopupButtons();
             return;
         }
 
-        for (Player player : nearbyPlayers) {
-            this.addRenderableWidget(Button.builder(
-                            Component.literal(player.getName().getString()),
-                            button -> initiatePlayerTrade(player)
-                    ).pos(this.leftPos + 350, this.topPos + 30 + nearbyPlayers.indexOf(player) * 20) // Adjust position based on index
-                    .size(80, 20)
-                    .build());
+        if (nearbyPlayers.isEmpty()) {
+            System.out.println("There are no players nearby");
+            return;
         }
+
+        // Render the close button ('X')
+        Button closeButton = Button.builder(
+                        Component.literal("X"),
+                        button -> {
+                            isPopupOpen = false;
+                            clearPopupButtons();
+                        })
+                .pos(this.leftPos + 370, this.topPos + 10) // Adjust position
+                .size(20, 20)
+                .build();
+
+        // Add the close button to the popup and the list
+        this.addRenderableWidget(closeButton);
+        popupButtons.add(closeButton);
+
+        // Render nearby players as buttons inside the popup
+        for (Player player : nearbyPlayers) {
+            Button playerButton = Button.builder(
+                            Component.literal(player.getName().getString()),
+                            button -> initiatePlayerTrade(player))
+                    .pos(this.leftPos + 370, this.topPos + 60 + nearbyPlayers.indexOf(player) * 20) // Adjust position based on index
+                    .size(80, 20)
+                    .build();
+
+            // Add each player button to the popup and the list
+            this.addRenderableWidget(playerButton);
+            popupButtons.add(playerButton);
+        }
+    }
+
+    private void clearPopupButtons() {
+        for (Button button : popupButtons) {
+            this.removeWidget(button);
+        }
+        popupButtons.clear();
     }
 
     private List<Player> getNearbyPlayers(int radius) {
@@ -186,12 +230,69 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         NetworkHandler.INSTANCE.sendToServer(new ServerboundTradePacket(recipient.getUUID(), tradeItem, tradeAmount));
     }
 
+    private void renderTradePopup(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        // Popup background
+        int popupX = this.leftPos + 300;
+        int popupY = this.topPos + 30;
+        int popupWidth = 150;
+        int popupHeight = 300;
+        int backgroundColor = 0xB3000000; // Black background with transparency
 
+        guiGraphics.fill(popupX, popupY, popupX + popupWidth, popupY + popupHeight, backgroundColor);
+
+        // Render trade item and amount
+        ItemStack tradeItem = this.menu.getSlot(0).getItem();
+        String amountStr = amountField.getValue();
+        guiGraphics.drawString(this.font, "Item: " + tradeItem.getDisplayName().getString(), popupX + 10, popupY + 10, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, "Amount: " + amountStr, popupX + 10, popupY + 30, 0xFFFFFF, false);
+        openPlayerSelectionScreen();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int popupX = this.leftPos + 300;
+        int popupY = this.topPos + 30;
+        int popupWidth = 150;
+        int popupHeight = 300;
+
+        if(isPopupOpen){
+            if (mouseX < popupX || mouseX > popupX + popupWidth || mouseY < popupY || mouseY > popupY + popupHeight) {
+                // Close the popup if the left mouse button is clicked
+                if (button == 0) {
+                    isPopupOpen = false;  // Your method to close the popup
+                    clearPopupButtons();
+                    return true;   // Consume the click event
+                }
+            }
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button); // Pass event to other widgets if inside
+    }
 
     private void refreshContainer() {
         Minecraft mc = Minecraft.getInstance();
         mc.player.closeContainer();
         NetworkHandler.INSTANCE.sendToServer(new OpenCustomContainerPacket());
+    }
+
+    private void restoreMousePosition() {
+        try {
+            MouseHandler mouseHelper = Minecraft.getInstance().mouseHandler;
+
+            // Log the intended restoration position
+            System.out.println("Restoring Mouse Position: x= " + previousMouseX +  " y= " + previousMouseY);
+
+            // Reflection to set the mouse position
+            long windowPointer = Minecraft.getInstance().getWindow().getWindow();
+            Class<?> mouseHelperClass = MouseHandler.class;
+
+            java.lang.reflect.Method setPositionMethod = mouseHelperClass.getDeclaredMethod("onMove", long.class, double.class, double.class);
+            setPositionMethod.setAccessible(true);
+            setPositionMethod.invoke(mouseHelper, windowPointer, previousMouseX, previousMouseY);
+
+        } catch (Exception e) {
+            System.out.println("Error");
+        }
     }
 
     private class CustomButton extends Button {
