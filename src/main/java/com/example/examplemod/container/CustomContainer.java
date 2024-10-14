@@ -28,7 +28,7 @@ public class CustomContainer extends AbstractContainerMenu {
         super(ExampleMod.CUSTOM_CONTAINER.get(), windowId);
         this.playerInventory = playerInventory;
 
-        this.addSlot(new TradeSlot(playerInventory, 27, 335, 340));
+        this.addSlot(new TradeSlot(playerInventory, 27, 409, 300));
 
         List<Integer> filledSlots = new ArrayList<>();
         int mode = FilterManager.getFilterMode();
@@ -59,14 +59,14 @@ public class CustomContainer extends AbstractContainerMenu {
         if (nextEmptySlot >= 0 && nextEmptySlot < 29 && !filledSlots.contains(nextEmptySlot)) {
             filledSlots.add(nextEmptySlot);
         }
-        this.addSlot(new ArmorSlot(playerInventory, 39, 270, 96, EquipmentSlot.HEAD));
-        this.addSlot(new ArmorSlot(playerInventory, 38, 270, 132, EquipmentSlot.CHEST));
-        this.addSlot(new ArmorSlot(playerInventory, 37, 270, 168, EquipmentSlot.LEGS));
-        this.addSlot(new ArmorSlot(playerInventory, 36, 270, 204, EquipmentSlot.FEET));
+        this.addSlot(new ArmorSlot(playerInventory, 39, 320, 96, EquipmentSlot.HEAD));
+        this.addSlot(new ArmorSlot(playerInventory, 38, 320, 132, EquipmentSlot.CHEST));
+        this.addSlot(new ArmorSlot(playerInventory, 37, 320, 168, EquipmentSlot.LEGS));
+        this.addSlot(new ArmorSlot(playerInventory, 36, 320, 204, EquipmentSlot.FEET));
 
-        int totalSlots = 20; // Total number of slots you want to handle
-        int filledSlotCount = filledSlots.size(); // Number of filled slots
-        int filledSlotIndex = 0; // Index to track the current filled slot
+        int totalSlots = 20;
+        int filledSlotCount = filledSlots.size();
+        int filledSlotIndex = 0;
 
         for (int slotId = 0; slotId < totalSlots; ++slotId) {
             int x, y;
@@ -77,7 +77,7 @@ public class CustomContainer extends AbstractContainerMenu {
                 int i = filledSlotIndex / 5; // Calculate row index (0 to 3 for 20 slots)
                 int j = filledSlotIndex % 5; // Calculate column index (0 to 4 for 5 columns)
 
-                x = 20 + j * 36; // Calculate x position
+                x = 70 + j * 36; // Calculate x position
                 y = 96 + i * 36; // Calculate y position
 
                 this.addSlot(new Slot(playerInventory, slotId, x, y)); // Add filled slot
@@ -104,7 +104,7 @@ public class CustomContainer extends AbstractContainerMenu {
         // Add hotbar slots (0-8)
 
         for (int k = 0; k < 5; ++k) {
-            int x = 20 + k * 36;
+            int x = 70 + k * 36;
             int y = 260;
             this.addSlot(new Slot(playerInventory, k, x, y));
         }

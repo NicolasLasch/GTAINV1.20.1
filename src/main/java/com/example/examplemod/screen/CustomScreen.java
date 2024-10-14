@@ -6,23 +6,37 @@ import com.example.examplemod.network.NetworkHandler;
 import com.example.examplemod.network.OpenCustomContainerPacket;
 import com.example.examplemod.network.ServerboundSelectTradePacket;
 import com.example.examplemod.network.ServerboundTradePacket;
+import com.mojang.authlib.minecraft.MinecraftProfileTexture;
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.SkinManager;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
@@ -44,8 +58,8 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
-        int defaultColor = 0xB3000000; // Black color
-        int selectedColor = 0xB3737373; // White color
+        int defaultColor = 0xB3000000;
+        int selectedColor = 0xB3737373;
         for (Slot slot : this.menu.slots) {
             boolean isSelected = slot == this.getSlotUnderMouse();
             int backgroundColor = isSelected ? selectedColor : defaultColor;
@@ -64,14 +78,13 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        float scale = 2F;
-        guiGraphics.drawString(this.font, "BackPack", 14 / scale, 120 / scale, 0xFFFFFF, false);
-        scale = 1F;
-        guiGraphics.drawString(this.font, "1", 11 + 6 / scale, 257 / scale, 0xFFFFFF, false);
-        guiGraphics.drawString(this.font, "2", 47 + 6 / scale, 257 / scale, 0xFFFFFF, false);
-        guiGraphics.drawString(this.font, "3", 83 + 6 / scale, 257 / scale, 0xFFFFFF, false);
-        guiGraphics.drawString(this.font, "4", 119 + 6 / scale, 257 / scale, 0xFFFFFF, false);
-        guiGraphics.drawString(this.font, "5", 155 + 6 / scale, 257 / scale, 0xFFFFFF, false);
+        float scale = 1F;
+        guiGraphics.drawString(this.font, "BackPack", 61 + 6 / scale, 60 / scale, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, "1", 61 + 6 / scale, 257 / scale, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, "2", 107 + 6 / scale, 257 / scale, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, "3", 143 + 6 / scale, 257 / scale, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, "4", 169 + 6 / scale, 257 / scale, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, "5", 205 + 6 / scale, 257 / scale, 0xFFFFFF, false);
     }
 
     @Override
@@ -80,6 +93,7 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
         this.renderDraggedItemWithBackground(guiGraphics, mouseX, mouseY);
+        renderEntityInInventoryFollowsMouse(guiGraphics, this.leftPos + 425, this.topPos + 285, 80, (float)(this.leftPos + 445) - mouseX, (float)(this.topPos + 290-80) - mouseY, Minecraft.getInstance().player);
 
         if (isPopupOpen) {
             renderTradePopup(guiGraphics, mouseX, mouseY);
@@ -102,34 +116,33 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         this.leftPos = 0;
         this.topPos = 0;
 
-        this.amountField = new EditBox(this.font, this.leftPos + 335, this.topPos + 290, 40, 20, Component.literal("Amount"));
+        this.amountField = new CustomEditBox(this.font, this.leftPos + 415, this.topPos + 340, 20, 20, Component.literal("Amount"));
         this.amountField.setMaxLength(2);
         this.amountField.setValue("0");
         this.addRenderableWidget(this.amountField);
 
-        this.addRenderableWidget(Button.builder(
-                        Component.literal("Trade"),
-                        button -> {
-                            NetworkHandler.INSTANCE.sendToServer(new ServerboundSelectTradePacket());
-                            initiateTrade();
-                        })
-                .pos(this.leftPos + 335, this.topPos + 370)
-                .size(50, 20)
-                .build()
-        );
+// Create a custom Button
+        this.addRenderableWidget(new TradeButton(
+                this.leftPos + 400, this.topPos + 365, 50, 20,
+                Component.literal("Trade"),
+                button -> {
+                    NetworkHandler.INSTANCE.sendToServer(new ServerboundSelectTradePacket());
+                    initiateTrade();
+                }
+        ));
 
         // Adding custom buttons for filters
-        this.addRenderableWidget(new CustomButton(this.leftPos + 129, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/all.png"), button -> {
+        this.addRenderableWidget(new CustomButton(this.leftPos + 229, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/all.png"), button -> {
             FilterManager.setFilterMode(0);
             refreshContainer();
         }));
 
-        this.addRenderableWidget(new CustomButton(this.leftPos + 149, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/food.png"), button -> {
+        this.addRenderableWidget(new CustomButton(this.leftPos + 249, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/food.png"), button -> {
             FilterManager.setFilterMode(1);
             refreshContainer();
         }));
 
-        this.addRenderableWidget(new CustomButton(this.leftPos + 169, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/clothes.png"), button -> {
+        this.addRenderableWidget(new CustomButton(this.leftPos + 269, this.topPos + 60, 15, 15, new ResourceLocation("examplemod", "textures/icons/clothes.png"), button -> {
             FilterManager.setFilterMode(2);
             refreshContainer();
         }));
@@ -150,7 +163,6 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
             return;
         }
 
-        // Check if the player has enough items in slot 40
         if (tradeItem.getCount() < tradeAmount) {
             // Show an error message if the player doesn't have enough items
             return;
@@ -176,31 +188,28 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
             return;
         }
 
-        // Render the close button ('X')
-        Button closeButton = Button.builder(
-                        Component.literal("X"),
-                        button -> {
-                            isPopupOpen = false;
-                            clearPopupButtons();
-                        })
-                .pos(this.leftPos + 370, this.topPos + 10) // Adjust position
-                .size(20, 20)
-                .build();
-
+        CrossButton closeButton = new CrossButton(this.leftPos + 480,
+                this.topPos + 30,
+                20,
+                20,
+                new ResourceLocation("examplemod", "textures/icons/cross.png"),
+                button -> {
+                    isPopupOpen = false;
+                    clearPopupButtons();
+                });
         // Add the close button to the popup and the list
         this.addRenderableWidget(closeButton);
         popupButtons.add(closeButton);
 
         // Render nearby players as buttons inside the popup
         for (Player player : nearbyPlayers) {
-            Button playerButton = Button.builder(
-                            Component.literal(player.getName().getString()),
-                            button -> initiatePlayerTrade(player))
-                    .pos(this.leftPos + 370, this.topPos + 60 + nearbyPlayers.indexOf(player) * 20) // Adjust position based on index
-                    .size(80, 20)
-                    .build();
-
-            // Add each player button to the popup and the list
+            CustomPlayerButton playerButton = new CustomPlayerButton(
+                    this.leftPos + 365,
+                    this.topPos + 80 + nearbyPlayers.indexOf(player) * 30,
+                    120,
+                    20,
+                    player,
+                    button -> initiatePlayerTrade(player));
             this.addRenderableWidget(playerButton);
             popupButtons.add(playerButton);
         }
@@ -232,7 +241,7 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
     private void renderTradePopup(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         // Popup background
-        int popupX = this.leftPos + 300;
+        int popupX = this.leftPos + 350;
         int popupY = this.topPos + 30;
         int popupWidth = 150;
         int popupHeight = 300;
@@ -250,7 +259,7 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int popupX = this.leftPos + 300;
+        int popupX = this.leftPos + 350;
         int popupY = this.topPos + 30;
         int popupWidth = 150;
         int popupHeight = 300;
@@ -295,6 +304,91 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         }
     }
 
+    public class CustomEditBox extends EditBox {
+        public CustomEditBox(Font font, int x, int y, int width, int height, Component placeholder) {
+            super(font, x, y, width, height, placeholder);
+        }
+
+        @Override
+        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+            // Draw the black background
+            drawRoundedRect(guiGraphics, this.getX(), this.getY(), this.width, this.height, 0xB3000000, false);
+
+            // Draw the text
+            guiGraphics.drawString(Minecraft.getInstance().font, this.getValue(), this.getX() + 4, this.getY() + (this.height - 8) / 2, 0xFFFFFFFF, false);
+
+            // Draw the cursor if the edit box is focused
+            if (this.isFocused() && this.getValue().length() > 0) {
+                int cursorX = this.getX() + 4 + Minecraft.getInstance().font.width(this.getValue().substring(0, this.getCursorPosition()));
+                guiGraphics.fill(cursorX, this.getY() + 2, cursorX + 1, this.getY() + this.height - 2, 0xFFFFFFFF);
+            }
+        }
+    }
+
+    public class TradeButton extends Button {
+        public TradeButton(int x, int y, int width, int height, Component message, OnPress onPress) {
+            super(x, y, width, height, message, onPress, Button.DEFAULT_NARRATION);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+            // Draw the black background
+            drawRoundedRect(guiGraphics, this.getX(), this.getY(), this.width, this.height, 0xB3000000, false);
+
+            // Draw the button text
+            int textWidth = Minecraft.getInstance().font.width(this.getMessage());
+            int textX = this.getX() + (this.width - textWidth) / 2;
+            int textY = this.getY() + (this.height - 8) / 2; // Center text vertically
+            guiGraphics.drawString(Minecraft.getInstance().font, this.getMessage().getString(), textX, textY, 0xFFFFFFFF, false);
+        }
+    }
+
+
+
+    public class CustomPlayerButton extends Button {
+        private final Player player;
+
+        public CustomPlayerButton(int x, int y, int width, int height, Player player, OnPress onPress) {
+            super(x, y, width, height, Component.literal(player.getName().getString()), onPress, Button.DEFAULT_NARRATION);
+            this.player = player;
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+            int borderColor = 0xFFFFFFFF; // White border color
+            guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, borderColor);
+
+            // Draw the player head on the left
+            drawPlayerHead(this.getX() + 2, this.getY() + 2, 16, 16, player, guiGraphics);
+
+            // Draw the player's name on the right
+            guiGraphics.drawString(Minecraft.getInstance().font, player.getName().getString(), this.getX() + 20, this.getY() + 8, 0x000000, false);
+        }
+
+        // Render player head (custom rendering method)
+        private void drawPlayerHead(int x, int y, int width, int height, Player player, GuiGraphics guiGraphics) {
+            Minecraft minecraft = Minecraft.getInstance();
+            SkinManager skinManager = minecraft.getSkinManager();
+            ResourceLocation playerSkin = getPlayerSkin(player, skinManager);
+
+            RenderSystem.setShaderTexture(0, playerSkin);
+
+            // Draw player head from the skin texture
+            guiGraphics.blit(playerSkin, x, y, width, height, 8, 8, 8, 8, 64, 64);
+        }
+
+        private ResourceLocation getPlayerSkin(Player player, SkinManager skinManager) {
+            Map<MinecraftProfileTexture.Type, MinecraftProfileTexture> skinData = skinManager.getInsecureSkinInformation(player.getGameProfile());
+
+            // Check if the player has a custom skin or use the default one
+            if (skinData.containsKey(MinecraftProfileTexture.Type.SKIN)) {
+                return skinManager.registerTexture(skinData.get(MinecraftProfileTexture.Type.SKIN), MinecraftProfileTexture.Type.SKIN);
+            } else {
+                return DefaultPlayerSkin.getDefaultSkin(player.getUUID());
+            }
+        }
+    }
+
     private class CustomButton extends Button {
         private final ResourceLocation icon;
         private final boolean isIconButton;
@@ -326,8 +420,100 @@ public class CustomScreen extends AbstractContainerScreen<CustomContainer> {
         }
     }
 
+    private class CrossButton extends Button {
+        private final ResourceLocation icon;
+        private final boolean isIconButton;
+
+        public CrossButton(int x, int y, int width, int height, ResourceLocation icon, OnPress onPress) {
+            super(x, y, width, height, Component.empty(), onPress, Button.DEFAULT_NARRATION);
+            this.icon = icon;
+            this.isIconButton = true;
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+            if (isIconButton && icon != null) {
+                guiGraphics.blit(icon, this.getX(), this.getY(), 0, 0, this.getWidth(), this.getHeight(), this.getWidth(), this.getHeight());
+            }
+        }
+    }
+
+    public static void renderEntityInInventoryFollowsMouse(GuiGraphics pGuiGraphics, int pX, int pY, int pScale, float mouseX, float mouseY, LivingEntity entity) {
+        // Reduce the mouse sensitivity to avoid the entity looking too far down
+        float f = (float)Math.atan(mouseX / 80.0F);  // Increased divisor to reduce the effect
+        float f1 = (float)Math.atan(mouseY / 80.0F);  // Same adjustment for the Y axis
+        renderEntityInInventoryFollowsAngle(pGuiGraphics, pX, pY, pScale, f, f1, entity);
+    }
+
+    public static void renderEntityInInventoryFollowsAngle(GuiGraphics pGuiGraphics, int pX, int pY, int pScale, float angleXComponent, float angleYComponent, LivingEntity entity) {
+        // Adjust the angles for more appropriate entity rotation
+        Quaternionf quaternionf = (new Quaternionf()).rotateZ((float)Math.PI);  // Rotate the entity upright
+        Quaternionf quaternionf1 = (new Quaternionf()).rotateX(angleYComponent * 20.0F * 0.017453292F); // Apply X rotation (mouse Y)
+        quaternionf.mul(quaternionf1);
+
+        // Backup the entity's original rotations
+        float originalBodyYaw = entity.yBodyRot;
+        float originalYaw = entity.getYRot();
+        float originalPitch = entity.getXRot();
+        float originalHeadYawO = entity.yHeadRotO;
+        float originalHeadYaw = entity.yHeadRot;
+
+        // Set new rotations based on the mouse movement
+        entity.yBodyRot = 180.0F + angleXComponent * 20.0F;  // Body yaw (side-to-side)
+        entity.setYRot(180.0F + angleXComponent * 40.0F);    // Yaw (side-to-side)
+        entity.setXRot(-angleYComponent * 20.0F);            // Pitch (up-down)
+        entity.yHeadRot = entity.getYRot();
+        entity.yHeadRotO = entity.getYRot();
+
+        // Render the entity with the updated angles
+        renderEntityInInventory(pGuiGraphics, pX, pY, pScale, quaternionf, quaternionf1, entity);
+
+        // Restore the original rotations
+        entity.yBodyRot = originalBodyYaw;
+        entity.setYRot(originalYaw);
+        entity.setXRot(originalPitch);
+        entity.yHeadRotO = originalHeadYawO;
+        entity.yHeadRot = originalHeadYaw;
+    }
+
+    public static void renderEntityInInventory(GuiGraphics pGuiGraphics, int pX, int pY, int pScale, Quaternionf rotation, @Nullable Quaternionf cameraOrientation, LivingEntity entity) {
+        // Push the pose (matrix stack)
+        pGuiGraphics.pose().pushPose();
+        pGuiGraphics.pose().translate(pX, pY, 50.0);  // Position the entity on the screen
+        pGuiGraphics.pose().mulPoseMatrix((new Matrix4f()).scaling(pScale, pScale, -pScale));  // Apply the scale
+
+        // Apply the Z-axis rotation (flip entity upright)
+        pGuiGraphics.pose().mulPose(rotation);
+
+        // Prepare lighting for entity rendering
+        Lighting.setupForEntityInInventory();
+
+        // Get the entity renderer and render without shadows
+        EntityRenderDispatcher entityRenderer = Minecraft.getInstance().getEntityRenderDispatcher();
+        if (cameraOrientation != null) {
+            cameraOrientation.conjugate();
+            entityRenderer.overrideCameraOrientation(cameraOrientation);
+        }
+
+        entityRenderer.setRenderShadow(false);  // Disable shadows for inventory rendering
+        RenderSystem.runAsFancy(() -> {
+            entityRenderer.render(entity, 0.0, 0.0, 0.0, 0.0F, 1.0F, pGuiGraphics.pose(), pGuiGraphics.bufferSource(), 15728880);
+        });
+        pGuiGraphics.flush();  // Ensure rendering is completed
+
+        // Restore shadows and pop the pose stack
+        entityRenderer.setRenderShadow(true);
+        pGuiGraphics.pose().popPose();
+
+        // Restore lighting for 3D items
+        Lighting.setupFor3DItems();
+    }
+
+
     @Override
     protected void slotClicked(Slot slot, int slotId, int mouseButton, ClickType type) {
         super.slotClicked(slot, slotId, mouseButton, type);
     }
+
+
 }
